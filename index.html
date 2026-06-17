@@ -36,6 +36,12 @@
   #err { position: fixed; bottom: 12px; left: 12px; right: 12px; z-index: 99; display: none;
     font: 12px/1.5 ui-monospace, monospace; background: #2a1215; color: #ff8a80; padding: 10px 14px;
     border-radius: 8px; border: 1px solid #5c2b2e; white-space: pre-wrap; max-height: 38vh; overflow: auto; }
+  #sel { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 11; display: none;
+    font-size: 12px; font-weight: 600; color: #1a1308; background: rgba(194,160,99,0.95);
+    padding: 8px 16px; border-radius: 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.18); }
+  #reset { position: fixed; bottom: 16px; right: 26px; z-index: 10; cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.7); backdrop-filter: blur(8px);
+    border-radius: 20px; padding: 8px 14px; font-size: 11px; font-weight: 600; color: #4a4a44; }
 </style>
 </head>
 <body>
@@ -43,7 +49,7 @@
   <div id="ui">
     <div class="kicker">Coffee Lab</div>
     <h1>Roastery — Phase 1</h1>
-    <div class="sub">Single-room layout · drag to orbit · right-drag to pan · scroll to zoom</div>
+    <div class="sub">Drag to orbit · right-drag to pan · scroll to zoom · click an item to move it ( [ ] to rotate )</div>
   </div>
   <div id="views">
     <button data-v="entrance" class="on">Entrance</button>
@@ -53,6 +59,8 @@
   <div id="foot">One room ≈ 8 × 3.3 m · roast · QC · blend · package · green storage</div>
   <div id="load">Building roastery…</div>
   <div id="err"></div>
+  <div id="sel"></div>
+  <button id="reset">↺ Reset layout</button>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
@@ -131,14 +139,60 @@
     // pointer drag + wheel
     let dragging = false, panning = false, px = 0, py = 0;
     const _vR = new THREE.Vector3(), _vU = new THREE.Vector3();
+
+    // ---- movable items (click to grab, drag to move, [ ] to rotate) ----
+    const editable = [];                 // top-level item groups, filled in assembly
+    const initialXf = [];                // saved start transforms for the Reset button
+    let selected = null, draggingObj = false;
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+    const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hitPt = new THREE.Vector3(), objOff = new THREE.Vector3();
+    let boxHelper = null;
+    const hud = document.getElementById('sel');
+    function setNdc(e) { ndc.set((e.clientX / W) * 2 - 1, -(e.clientY / H) * 2 + 1); }
+    function topGroup(o) { while (o) { if (editable.indexOf(o) >= 0) return o; o = o.parent; } return null; }
+    function updateHud() {
+      if (!hud) return;
+      if (selected) { hud.style.display = 'block'; hud.textContent = '✋ ' + (selected.userData.label || 'item') + ' — drag to move · [ ] rotate · Esc to release'; }
+      else hud.style.display = 'none';
+    }
+    function select(g) {
+      selected = g;
+      if (boxHelper) { scene.remove(boxHelper); boxHelper = null; }
+      if (g) { boxHelper = new THREE.BoxHelper(g, 0xc2a063); boxHelper.material.depthTest = false; boxHelper.material.depthWrite = false; boxHelper.renderOrder = 999; scene.add(boxHelper); }
+      updateHud();
+    }
+
     renderer.domElement.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     renderer.domElement.addEventListener('pointerdown', function (e) {
       e.preventDefault();
-      dragging = true; panning = (e.button === 2 || e.button === 1 || e.shiftKey); px = e.clientX; py = e.clientY;
+      px = e.clientX; py = e.clientY;
+      const pan = (e.button === 2 || e.button === 1 || e.shiftKey);
       try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
+      if (!pan && e.button === 0) {
+        setNdc(e); ray.setFromCamera(ndc, camera);
+        const hits = ray.intersectObjects(editable, true);
+        const g = hits.length ? topGroup(hits[0].object) : null;
+        if (g) {
+          select(g); draggingObj = true; dragging = false; panning = false;
+          if (ray.ray.intersectPlane(floorPlane, hitPt)) objOff.set(g.position.x - hitPt.x, 0, g.position.z - hitPt.z);
+          return;
+        }
+        select(null);   // clicked empty space — deselect, then orbit
+      }
+      dragging = true; panning = pan; draggingObj = false;
     });
-    window.addEventListener('pointerup', function () { dragging = false; panning = false; });
+    window.addEventListener('pointerup', function () { dragging = false; panning = false; draggingObj = false; });
     window.addEventListener('pointermove', function (e) {
+      if (draggingObj && selected) {
+        setNdc(e); ray.setFromCamera(ndc, camera);
+        if (ray.ray.intersectPlane(floorPlane, hitPt)) {
+          selected.position.x = Math.max(-RX + 0.25, Math.min(RX - 0.25, hitPt.x + objOff.x));
+          selected.position.z = Math.max(0.35, Math.min(LEN - 0.35, hitPt.z + objOff.z));
+          if (boxHelper) boxHelper.update();
+        }
+        px = e.clientX; py = e.clientY; return;
+      }
       if (!dragging) return;
       const dx = e.clientX - px, dy = e.clientY - py;
       if (panning) {
@@ -153,6 +207,14 @@
         goal.phi = Math.max(0.16, Math.min(1.5, goal.phi - dy * 0.006));
       }
       px = e.clientX; py = e.clientY;
+    });
+    window.addEventListener('keydown', function (e) {
+      if (!selected) return;
+      if (e.key === '[' || e.key === ',') selected.rotation.y += Math.PI / 12;
+      else if (e.key === ']' || e.key === '.') selected.rotation.y -= Math.PI / 12;
+      else if (e.key === 'Escape') { select(null); return; }
+      else return;
+      if (boxHelper) boxHelper.update();
     });
     renderer.domElement.addEventListener('wheel', function (e) {
       e.preventDefault();
@@ -210,9 +272,9 @@
       const winMat = glow(0xdcebf2, 0.9);
       for (let i = 0; i < 2; i++) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.1), winMat);
-        m.position.set(RX - 0.02, 1.95, 2.0 + i * 2.1); m.rotation.y = -Math.PI / 2; scene.add(m);
+        m.position.set(RX - 0.02, 1.95, 4.2 + i * 2.0); m.rotation.y = -Math.PI / 2; scene.add(m);
         // frame
-        const f = box(0.06, 1.24, 1.46, M(0xeae8e3, { roughness: 0.9 }), RX - 0.03, 1.95, 2.0 + i * 2.1);
+        const f = box(0.06, 1.24, 1.46, M(0xeae8e3, { roughness: 0.9 }), RX - 0.03, 1.95, 4.2 + i * 2.0);
       }
 
       // ceiling LED light panels + matching point lights
@@ -450,34 +512,45 @@
     buildLights();
     buildRoom();
 
-    // right (exterior) wall — SWAPPED: 6 kg + destoner at the FRONT, 1 kg at the BACK; each roaster has its own table + laptop
-    roaster6(RX - 0.42, 2.7);
-    destoner(RX - 0.18, 1.85);
-    loggingTable(RX - 0.34, 3.7);          // the 6 kg roaster's table + laptop
-    loggingTable(RX - 0.34, 4.8);          // the 1 kg roaster's table + laptop
-    roaster1(RX - 0.32, 5.8);
+    // right (exterior) wall — 6 kg + destoner at the FRONT, 1 kg at the BACK; each roaster has its own table + laptop
+    const g6 = roaster6(RX - 0.42, 2.7);    g6.userData.label = '6 kg roaster';
+    const gDest = destoner(RX - 0.18, 2.2);  gDest.userData.label = 'destoner';
+    const gT1 = loggingTable(RX - 0.34, 3.7); gT1.userData.label = 'logging table';
+    const gT2 = loggingTable(RX - 0.34, 4.8); gT2.userData.label = 'logging table';
+    const g1 = roaster1(RX - 0.32, 5.8);    g1.userData.label = '1 kg sample roaster';
 
-    // left wall — packaging front -> back; green storage moved forward so it doesn't block the back door
-    packagingMachines(-RX + 0.34, 2.2);
-    packagingBench(-RX + 0.34, 3.7);
-    greenShelving(-RX + 0.32, 5.3);
+    // left wall — packaging front -> back; green storage toward the back
+    const gPM = packagingMachines(-RX + 0.34, 2.2); gPM.userData.label = 'packaging machines';
+    const gPB = packagingBench(-RX + 0.34, 3.7);     gPB.userData.label = 'packaging bench';
+    const gGS = greenShelving(-RX + 0.32, 5.3);      gGS.userData.label = 'green storage';
 
     // near (entrance) end — QC table + blender in the foreground
-    qcTable(0.42, 1.5);
-    blender(-0.5, 1.25);
+    const gQC = qcTable(0.42, 1.5);   gQC.userData.label = 'QC / cupping table';
+    const gBL = blender(-0.5, 1.25);  gBL.userData.label = 'blender';
 
-    // doors: one behind the 1 kg roaster (right wall), one behind the green storage (left wall)
-    makeDoor(0.4, 0.06, 0, true);    // front entrance door — in front of the cupping table, left of the 6 kg roaster
+    // doors (fixed to the walls — not movable)
+    makeDoor(RX - 0.02, 1.5, -Math.PI / 2, true);    // door beside the 6 kg roaster (right wall, just in front of it)
     makeDoor(-RX + 0.02, 6.8, Math.PI / 2, false);   // behind the green storage
 
-    // ---------- floating zone labels ----------
+    // register the movable items + remember their starting transforms (for Reset)
+    [g6, gDest, gT1, gT2, g1, gPM, gPB, gGS, gQC, gBL].forEach(function (g) {
+      editable.push(g);
+      initialXf.push({ g: g, p: g.position.clone(), ry: g.rotation.y });
+    });
+    const resetBtn = document.getElementById('reset');
+    if (resetBtn) resetBtn.addEventListener('click', function () {
+      initialXf.forEach(function (s) { s.g.position.copy(s.p); s.g.rotation.y = s.ry; });
+      select(null);
+    });
+
+    // ---------- floating zone labels (they follow their items when moved) ----------
     const LABELS = [
-      { t: '6 kg roaster', p: new THREE.Vector3(RX - 0.42, 1.7, 2.7) },
-      { t: '1 kg sample', p: new THREE.Vector3(RX - 0.32, 1.35, 5.8) },
-      { t: 'QC / cupping', p: new THREE.Vector3(0.42, 1.15, 1.5) },
-      { t: 'Blender', p: new THREE.Vector3(-0.5, 1.5, 1.25) },
-      { t: 'Packaging', p: new THREE.Vector3(-RX + 0.34, 1.35, 2.2) },
-      { t: 'Green storage', p: new THREE.Vector3(-RX + 0.32, 2.0, 5.3) },
+      { t: '6 kg roaster', g: g6, dy: 1.7 },
+      { t: '1 kg sample', g: g1, dy: 1.35 },
+      { t: 'QC / cupping', g: gQC, dy: 1.1 },
+      { t: 'Blender', g: gBL, dy: 1.45 },
+      { t: 'Packaging', g: gPM, dy: 1.35 },
+      { t: 'Green storage', g: gGS, dy: 2.0 },
     ];
     const labelEls = LABELS.map(function (l) {
       const el = document.createElement('div'); el.className = 'lab'; el.textContent = l.t;
@@ -486,7 +559,8 @@
     const proj = new THREE.Vector3();
     function updateLabels() {
       for (let i = 0; i < LABELS.length; i++) {
-        proj.copy(LABELS[i].p).project(camera);
+        const g = LABELS[i].g;
+        proj.set(g.position.x, LABELS[i].dy, g.position.z).project(camera);
         const el = labelEls[i];
         if (proj.z > 1) { el.style.opacity = '0'; continue; }
         el.style.opacity = '0.95';

@@ -6,7 +6,11 @@ An interactive, stylized 3D walkthrough of the Phase 1 single-room roastery (≈
 
 👉 **https://xandro-bit.github.io/goodcup-roastery/**
 
-**Drag** to orbit · **right-drag** (or shift-drag) to pan · **scroll** to zoom · use the **Entrance / Far end / Dollhouse** buttons to jump between viewpoints. (Needs a modern browser with WebGL and an internet connection — Three.js loads from a CDN.)
+**Camera:** **drag** to orbit · **right-drag** (or shift-drag) to pan · **scroll** to zoom · use the **Entrance / Far end / Dollhouse** buttons to jump between viewpoints.
+
+**Rearrange the layout:** **click any item** to grab it, **drag** to slide it across the floor, **`[`** / **`]`** to rotate it, **Esc** to release, and **Reset layout** (bottom-right) to put everything back.
+
+(Needs a modern browser with WebGL and an internet connection — Three.js loads from a CDN.)
 
 ## What's in the room
 
