@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Good Cup Coffee Co. — Roastery (Phase 1)</title>
+<title>Coffee Lab — Roastery (Phase 1)</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; background: #e9e6e0; }
@@ -40,9 +40,9 @@
 <body>
   <div id="app"></div>
   <div id="ui">
-    <div class="kicker">Good Cup Coffee Co.</div>
+    <div class="kicker">Coffee Lab</div>
     <h1>Roastery — Phase 1</h1>
-    <div class="sub">Single-room layout · drag to orbit · scroll to zoom</div>
+    <div class="sub">Single-room layout · drag to orbit · right-drag to pan · scroll to zoom</div>
   </div>
   <div id="views">
     <button data-v="entrance" class="on">Entrance</button>
@@ -128,13 +128,27 @@
     });
 
     // pointer drag + wheel
-    let dragging = false, px = 0, py = 0;
-    renderer.domElement.addEventListener('pointerdown', function (e) { dragging = true; px = e.clientX; py = e.clientY; });
-    window.addEventListener('pointerup', function () { dragging = false; });
+    let dragging = false, panning = false, px = 0, py = 0;
+    const _vR = new THREE.Vector3(), _vU = new THREE.Vector3();
+    renderer.domElement.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    renderer.domElement.addEventListener('pointerdown', function (e) {
+      dragging = true; panning = (e.button === 2 || e.button === 1 || e.shiftKey); px = e.clientX; py = e.clientY;
+    });
+    window.addEventListener('pointerup', function () { dragging = false; panning = false; });
     window.addEventListener('pointermove', function (e) {
       if (!dragging) return;
-      goal.theta -= (e.clientX - px) * 0.006;
-      goal.phi = Math.max(0.16, Math.min(1.5, goal.phi - (e.clientY - py) * 0.006));
+      const dx = e.clientX - px, dy = e.clientY - py;
+      if (panning) {
+        const s = goal.radius * 0.0016;
+        _vR.set(1, 0, 0).applyQuaternion(camera.quaternion);
+        _vU.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        goal.tx = Math.max(-4, Math.min(4, goal.tx + (-_vR.x * dx + _vU.x * dy) * s));
+        goal.ty = Math.max(0.2, Math.min(2.8, goal.ty + (-_vR.y * dx + _vU.y * dy) * s));
+        goal.tz = Math.max(-2, Math.min(10, goal.tz + (-_vR.z * dx + _vU.z * dy) * s));
+      } else {
+        goal.theta -= dx * 0.006;
+        goal.phi = Math.max(0.16, Math.min(1.5, goal.phi - dy * 0.006));
+      }
       px = e.clientX; py = e.clientY;
     });
     renderer.domElement.addEventListener('wheel', function (e) {
@@ -191,7 +205,7 @@
       // skirting accent line on floor edges (subtle)
       // windows on the right (exterior) wall — bright daylight panels, slightly inset
       const winMat = glow(0xdcebf2, 0.9);
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.1), winMat);
         m.position.set(RX - 0.02, 1.95, 2.0 + i * 2.1); m.rotation.y = -Math.PI / 2; scene.add(m);
         // frame
@@ -213,16 +227,10 @@
         box(0.86, 0.05, 0.02, M(0x3a3a3a, { roughness: 0.6 }), 0, -0.08, 0.11, g); // vent slit
         g.position.set(x, 2.55, z); g.rotation.y = ry; scene.add(g);
       }
-      ac(RX - 0.12, 4.4, -Math.PI / 2);
-      ac(-RX + 0.12, 5.6, Math.PI / 2);
+      ac(RX - 0.12, 4.0, -Math.PI / 2);
+      ac(-RX + 0.12, 4.0, Math.PI / 2);
 
-      // entrance: warm-wood door frame + glass door + a framed photo (the warm accent)
-      const dg = new THREE.Group();
-      box(0.12, 2.12, 0.12, wood(), -0.55, 1.06, 0, dg);
-      box(0.12, 2.12, 0.12, wood(), 0.55, 1.06, 0, dg);
-      box(1.22, 0.14, 0.12, wood(), 0, 2.12, 0, dg);
-      const doorGlass = box(0.9, 1.98, 0.04, M(0xbfd3d8, { metalness: 0.2, roughness: 0.15, transparent: true, opacity: 0.5 }), 0.18, 1.0, 0.02, dg);
-      scene.add(dg);
+      // (doors are placed on the side walls in the assembly section, via makeDoor)
       // framed farmer photo (warm wood) on entrance wall
       const ph = box(0.5, 0.66, 0.04, wood(), -1.15, 1.5, 0.04);
       box(0.4, 0.54, 0.02, M(0xb9a47f, { roughness: 0.8 }), -1.15, 1.5, 0.07);
@@ -324,9 +332,21 @@
         scr.rotation.x = -0.35; l.children[1].position.z = -0.1; l.children[2].position.z = -0.092;
         l.position.set(lx, 0.79, lz); l.rotation.y = ry; g.add(l);
       }
-      laptop(-0.1, 0.05, 0.2); laptop(0.16, -0.05, -0.1);
+      laptop(0, 0.0, 0.08);   // one laptop per roaster's own table
       g.position.set(x, 0, z);
       scene.add(g); return g;
+    }
+
+    // a door on a side wall (px = wall x; ry orients the panel to face into the room)
+    function makeDoor(px, pz, ry, woodAccent) {
+      const g = new THREE.Group();
+      const fr = woodAccent ? wood() : M(0xe6e4df, { roughness: 0.85 });
+      box(0.1, 2.12, 0.1, fr, -0.52, 1.06, 0, g);   // jambs
+      box(0.1, 2.12, 0.1, fr, 0.52, 1.06, 0, g);
+      box(1.14, 0.12, 0.1, fr, 0, 2.12, 0, g);       // lintel
+      box(0.9, 1.98, 0.04, M(0xbfd3d8, { metalness: 0.2, roughness: 0.15, transparent: true, opacity: 0.5 }), 0, 1.0, 0.0, g); // glass
+      box(0.04, 0.3, 0.05, steelDark(), 0.34, 1.0, 0.06, g);   // handle
+      g.position.set(px, 0, pz); g.rotation.y = ry; scene.add(g); return g;
     }
 
     // stainless cupping / QC table with degas bins on a lower shelf
@@ -428,29 +448,34 @@
     buildLights();
     buildRoom();
 
-    // right (exterior) wall — roasters, front -> back
-    const r1 = roaster1(RX - 0.32, 2.3);
-    const lt = loggingTable(RX - 0.34, 4.0);
-    const r6 = roaster6(RX - 0.42, 5.9);
-    const ds = destoner(RX - 0.26, 6.7);
+    // right (exterior) wall — SWAPPED: 6 kg + destoner at the FRONT, 1 kg at the BACK; each roaster has its own table + laptop
+    roaster6(RX - 0.42, 2.7);
+    destoner(RX - 0.18, 1.85);
+    loggingTable(RX - 0.34, 3.7);          // the 6 kg roaster's table + laptop
+    loggingTable(RX - 0.34, 4.8);          // the 1 kg roaster's table + laptop
+    roaster1(RX - 0.32, 5.8);
 
-    // left wall — packaging, front -> back, green storage at far end
+    // left wall — packaging front -> back; green storage moved forward so it doesn't block the back door
     packagingMachines(-RX + 0.34, 2.2);
-    packagingBench(-RX + 0.34, 3.9);
-    greenShelving(-RX + 0.32, 6.9);
+    packagingBench(-RX + 0.34, 3.7);
+    greenShelving(-RX + 0.32, 5.3);
 
     // near (entrance) end — QC table + blender in the foreground
     qcTable(0.42, 1.5);
     blender(-0.5, 1.25);
 
+    // doors: one behind the 1 kg roaster (right wall), one behind the green storage (left wall)
+    makeDoor(RX - 0.02, 6.9, -Math.PI / 2, true);    // behind the 1 kg roaster — warm-wood main door
+    makeDoor(-RX + 0.02, 6.8, Math.PI / 2, false);   // behind the green storage
+
     // ---------- floating zone labels ----------
     const LABELS = [
-      { t: '6 kg roaster', p: new THREE.Vector3(RX - 0.42, 1.7, 5.9) },
-      { t: '1 kg sample', p: new THREE.Vector3(RX - 0.32, 1.35, 2.3) },
+      { t: '6 kg roaster', p: new THREE.Vector3(RX - 0.42, 1.7, 2.7) },
+      { t: '1 kg sample', p: new THREE.Vector3(RX - 0.32, 1.35, 5.8) },
       { t: 'QC / cupping', p: new THREE.Vector3(0.42, 1.15, 1.5) },
       { t: 'Blender', p: new THREE.Vector3(-0.5, 1.5, 1.25) },
       { t: 'Packaging', p: new THREE.Vector3(-RX + 0.34, 1.35, 2.2) },
-      { t: 'Green storage', p: new THREE.Vector3(-RX + 0.32, 2.15, 6.9) },
+      { t: 'Green storage', p: new THREE.Vector3(-RX + 0.32, 2.0, 5.3) },
     ];
     const labelEls = LABELS.map(function (l) {
       const el = document.createElement('div'); el.className = 'lab'; el.textContent = l.t;
