@@ -520,11 +520,11 @@
     buildRoom();
 
     // right (exterior) wall — 6 kg + destoner at the FRONT, 1 kg at the BACK; each roaster has its own table + laptop
-    const g6 = roaster6(RX - 0.42, 2.7);    g6.userData.label = '6 kg roaster';
-    const gDest = destoner(RX - 0.18, 2.2);  gDest.userData.label = 'destoner';
-    const gT1 = loggingTable(RX - 0.34, 3.7); gT1.userData.label = 'logging table';
-    const gT2 = loggingTable(RX - 0.34, 4.8); gT2.userData.label = 'logging table';
-    const g1 = roaster1(RX - 0.32, 5.8);    g1.userData.label = '1 kg sample roaster';
+    const g6 = roaster6(RX - 0.42, 3.4);    g6.userData.label = '6 kg roaster';
+    const gDest = destoner(RX - 0.18, 2.4);  gDest.userData.label = 'destoner';
+    const gT1 = loggingTable(RX - 0.34, 4.7); gT1.userData.label = 'logging table';   // 6 kg roaster's table
+    const gT2 = loggingTable(RX - 0.34, 6.3); gT2.userData.label = 'logging table';   // 1 kg roaster's table
+    const g1 = roaster1(RX - 0.32, 7.3);    g1.userData.label = '1 kg sample roaster';  // tucked into the back-right corner
 
     // left wall — packaging front -> back; green storage toward the back
     const gPM = packagingMachines(-RX + 0.34, 2.2); gPM.userData.label = 'packaging machines';
