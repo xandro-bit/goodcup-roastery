@@ -532,8 +532,8 @@
     const gGS = greenShelving(-RX + 0.32, 5.3);      gGS.userData.label = 'green storage';
 
     // near (entrance) end — QC table + blender in the foreground
-    const gQC = qcTable(0.42, 1.5);   gQC.userData.label = 'QC / cupping table';
-    const gBL = blender(-0.5, 1.25);  gBL.userData.label = 'blender';
+    const gQC = qcTable(0.35, 0.72);  gQC.userData.label = 'QC / cupping table'; gQC.rotation.y = Math.PI / 2;  // parallel to the entrance wall
+    const gBL = blender(-1.35, 0.55); gBL.userData.label = 'blender';  // tucked into the front-left corner
 
     // doors (fixed to the walls — not movable)
     makeDoor(RX - 0.02, 1.5, -Math.PI / 2, true);    // door beside the 6 kg roaster (right wall, just in front of it)
