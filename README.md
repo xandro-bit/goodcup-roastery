@@ -8,7 +8,9 @@ An interactive, stylized 3D walkthrough of the Phase 1 single-room roastery (≈
 
 **Camera:** **drag** to orbit · **right-drag** (or shift-drag) to pan · **scroll** to zoom · use the **Entrance / Far end / Dollhouse** buttons to jump between viewpoints.
 
-**Rearrange the layout:** **click any item** to grab it, **drag** to slide it across the floor, **`[`** / **`]`** to rotate it, **Esc** to release, and **Reset layout** (bottom-right) to put everything back.
+**Rearrange the layout:** **click any item** to grab it, **drag** to slide it across the floor, **`[`** / **`]`** to rotate it, **Esc** to release.
+
+**Save your layout:** **💾 Save layout** (bottom-right) stores your arrangement in your browser, so it loads automatically every visit; **↺ Reset** restores the built-in default.
 
 (Needs a modern browser with WebGL and an internet connection — Three.js loads from a CDN.)
 

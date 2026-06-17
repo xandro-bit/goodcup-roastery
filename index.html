@@ -39,9 +39,13 @@
   #sel { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 11; display: none;
     font-size: 12px; font-weight: 600; color: #1a1308; background: rgba(194,160,99,0.95);
     padding: 8px 16px; border-radius: 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.18); }
-  #reset { position: fixed; bottom: 16px; right: 26px; z-index: 10; cursor: pointer;
-    border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.7); backdrop-filter: blur(8px);
-    border-radius: 20px; padding: 8px 14px; font-size: 11px; font-weight: 600; color: #4a4a44; }
+  #lctrl { position: fixed; bottom: 16px; right: 26px; z-index: 10; display: flex; gap: 8px; }
+  #lctrl button { cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(8px); border-radius: 20px; padding: 8px 14px; font-size: 11px; font-weight: 600; color: #4a4a44; }
+  #save { background: rgba(194,160,99,0.92) !important; color: #1a1308 !important; border-color: rgba(0,0,0,0.08) !important; }
+  #toast { position: fixed; top: 78px; left: 50%; transform: translateX(-50%); z-index: 12; opacity: 0;
+    transition: opacity .3s; font-size: 12px; font-weight: 600; color: #1a1308; background: rgba(194,160,99,0.96);
+    padding: 8px 16px; border-radius: 22px; box-shadow: 0 2px 12px rgba(0,0,0,0.18); pointer-events: none; }
 </style>
 </head>
 <body>
@@ -60,7 +64,10 @@
   <div id="load">Building roastery…</div>
   <div id="err"></div>
   <div id="sel"></div>
-  <button id="reset">↺ Reset layout</button>
+  <div id="lctrl">
+    <button id="save">💾 Save layout</button>
+    <button id="reset">↺ Reset</button>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
@@ -532,16 +539,47 @@
     makeDoor(RX - 0.02, 1.5, -Math.PI / 2, true);    // door beside the 6 kg roaster (right wall, just in front of it)
     makeDoor(-RX + 0.02, 6.8, Math.PI / 2, false);   // behind the green storage
 
-    // register the movable items + remember their starting transforms (for Reset)
-    [g6, gDest, gT1, gT2, g1, gPM, gPB, gGS, gQC, gBL].forEach(function (g) {
-      editable.push(g);
-      initialXf.push({ g: g, p: g.position.clone(), ry: g.rotation.y });
+    // register the movable items (with stable ids) + remember their starting transforms
+    [['roaster6', g6], ['destoner', gDest], ['table6', gT1], ['table1', gT2], ['roaster1', g1],
+     ['packMachines', gPM], ['packBench', gPB], ['greenShelf', gGS], ['qcTable', gQC], ['blender', gBL]
+    ].forEach(function (e) {
+      e[1].userData.id = e[0];
+      editable.push(e[1]);
+      initialXf.push({ g: e[1], p: e[1].position.clone(), ry: e[1].rotation.y });
+    });
+
+    // ---- save / load layout (persists in this browser via localStorage) ----
+    const LS_KEY = 'coffeelab-roastery-layout-v1';
+    function serializeLayout() {
+      const m = {};
+      editable.forEach(function (g) { m[g.userData.id] = { x: +g.position.x.toFixed(3), y: +g.position.y.toFixed(3), z: +g.position.z.toFixed(3), ry: +g.rotation.y.toFixed(4) }; });
+      return m;
+    }
+    function applyLayout(m) {
+      if (!m) return;
+      editable.forEach(function (g) { const s = m[g.userData.id]; if (s) { g.position.set(s.x, s.y, s.z); g.rotation.y = s.ry; } });
+    }
+    function toast(msg) {
+      let t = document.getElementById('toast');
+      if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+      t.textContent = msg; t.style.opacity = '1';
+      clearTimeout(t._tmr); t._tmr = setTimeout(function () { t.style.opacity = '0'; }, 1900);
+    }
+    const saveBtn = document.getElementById('save');
+    if (saveBtn) saveBtn.addEventListener('click', function () {
+      const json = JSON.stringify(serializeLayout());
+      try { localStorage.setItem(LS_KEY, json); } catch (_) {}
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(json).catch(function () {});
+      toast('Layout saved ✓  (also copied to clipboard)');
     });
     const resetBtn = document.getElementById('reset');
     if (resetBtn) resetBtn.addEventListener('click', function () {
       initialXf.forEach(function (s) { s.g.position.copy(s.p); s.g.rotation.y = s.ry; });
-      select(null);
+      try { localStorage.removeItem(LS_KEY); } catch (_) {}
+      select(null); toast('Layout reset to default');
     });
+    // on startup, restore a previously saved layout if one exists
+    try { const saved = localStorage.getItem(LS_KEY); if (saved) applyLayout(JSON.parse(saved)); } catch (_) {}
 
     // ---------- floating zone labels (they follow their items when moved) ----------
     const LABELS = [
