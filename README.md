@@ -10,10 +10,10 @@ An interactive, stylized 3D walkthrough of the Phase 1 single-room roastery (≈
 
 ## What's in the room
 
-- **Right (exterior) wall** — the black 6 kg drum roaster + destoner at the front, then the 1 kg sample roaster toward the back; each roaster has its own steel logging table + laptop. Insulated exhaust ducts rise to the roof. A door sits behind the 1 kg roaster.
-- **Left wall** — packaging machines (weigh-filler + sealer), a stainless packaging bench, and steel shelving with crates of green coffee. A second door sits behind the green storage.
-- **Entrance end** — stainless cupping / QC table with degassing bins on the lower shelf, and the tall stainless vertical blender.
-- Matte white walls, polished grey microcement floor, daylight windows on the exterior wall, wall-mounted AC units centered on each wall, and a warm-wood accent.
+- **Right (exterior) wall** — the black 6 kg drum roaster + destoner at the front, then the 1 kg sample roaster toward the back; each roaster has its own steel logging table + laptop. Insulated exhaust ducts rise to the roof.
+- **Left wall** — packaging machines (weigh-filler + sealer), a stainless packaging bench, and steel shelving with crates of green coffee; a door sits behind the green storage.
+- **Entrance end** — a warm-wood glass entrance door in front of the stainless cupping / QC table (which has degassing bins on its lower shelf), and the tall stainless vertical blender.
+- Matte white walls, polished grey microcement floor, daylight windows on the exterior wall, a single wall-mounted AC unit on the exterior wall, and a warm-wood accent.
 
 ## Note
 
